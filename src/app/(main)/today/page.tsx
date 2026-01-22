@@ -42,6 +42,8 @@ export default function TodayPage() {
     useEffect(() => {
         if (!user) return;
 
+        console.time('TodayPage:LoadData');
+
         // Subscribe to items
         const unsubscribeItems = subscribeToItems(user.uid, (fetchedItems) => {
             setItems(fetchedItems);
@@ -49,6 +51,7 @@ export default function TodayPage() {
 
         // Subscribe to today's logs
         const unsubscribeLogs = subscribeToLogsByDate(user.uid, dateStr, (fetchedLogs) => {
+            console.timeEnd('TodayPage:LoadData');
             setLogs(fetchedLogs);
             setLoading(false);
         });
@@ -76,9 +79,6 @@ export default function TodayPage() {
             );
             showToast('Kayıt eklendi', 'success');
             setSelectedItemId(null);
-            // Reset time to now? Or keep it? Keeping it might be better for batch entry.
-            // But usually user wants current time for next entry unless they are backfilling.
-            // Let's keep it for now, user can change if needed.
         } catch (error) {
             console.error(error);
             showToast('Hata oluştu', 'error');
@@ -99,8 +99,25 @@ export default function TodayPage() {
         }
     };
 
+    // Skeleton Loading State
     if (loading) {
-        return <div className="p-4 text-center text-gray-400">Yükleniyor...</div>;
+        return (
+            <div className="p-4 max-w-lg mx-auto pb-24 animate-pulse">
+                <header className="mb-6">
+                    <div className="h-8 w-32 bg-white/10 rounded mb-2"></div>
+                    <div className="h-4 w-48 bg-white/5 rounded"></div>
+                </header>
+                <section className="bg-white/5 rounded-2xl p-4 border border-white/10 mb-8 h-[200px]"></section>
+                <section>
+                    <div className="h-6 w-24 bg-white/10 rounded mb-4"></div>
+                    <div className="space-y-3">
+                        <div className="h-16 bg-white/5 rounded-xl"></div>
+                        <div className="h-16 bg-white/5 rounded-xl"></div>
+                        <div className="h-16 bg-white/5 rounded-xl"></div>
+                    </div>
+                </section>
+            </div>
+        );
     }
 
     return (

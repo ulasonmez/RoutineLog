@@ -90,7 +90,17 @@ export default function CalendarPage() {
     const displayDate = formatDateTurkish(selectedDate);
 
     if (loading) {
-        return <div className="p-4 text-center text-gray-400">Yükleniyor...</div>;
+        return (
+            <div className="p-4 max-w-lg mx-auto pb-24 animate-pulse">
+                <header className="mb-6">
+                    <div className="h-8 w-32 bg-white/10 rounded mb-2"></div>
+                    <div className="h-4 w-48 bg-white/5 rounded"></div>
+                </header>
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10 mb-8 h-[350px]"></div>
+                <div className="h-4 w-32 bg-white/10 rounded mb-2"></div>
+                <div className="h-3 w-48 bg-white/5 rounded"></div>
+            </div>
+        );
     }
 
     return (

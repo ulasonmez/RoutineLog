@@ -97,7 +97,20 @@ export default function ItemsPage() {
     };
 
     if (loading) {
-        return <div className="p-4 text-center text-gray-400">Yükleniyor...</div>;
+        return (
+            <div className="p-4 max-w-lg mx-auto pb-24 animate-pulse">
+                <header className="mb-6">
+                    <div className="h-8 w-32 bg-white/10 rounded mb-2"></div>
+                    <div className="h-4 w-48 bg-white/5 rounded"></div>
+                </header>
+                <div className="h-10 bg-white/5 rounded-lg mb-8"></div>
+                <div className="space-y-3">
+                    <div className="h-16 bg-white/5 rounded-xl"></div>
+                    <div className="h-16 bg-white/5 rounded-xl"></div>
+                    <div className="h-16 bg-white/5 rounded-xl"></div>
+                </div>
+            </div>
+        );
     }
 
     return (

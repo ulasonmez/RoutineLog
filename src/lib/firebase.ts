@@ -22,17 +22,17 @@ if (typeof window !== 'undefined') {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 }
 
-// Lazy Firestore initialization - only on client side
-let _db: Firestore | null = null;
+// Initialize Firestore with settings
+// Using initializeFirestore to force long polling which fixes 20s timeout issues on some networks
+import { initializeFirestore } from 'firebase/firestore';
 
-export function getDb(): Firestore {
-    if (!_db) {
-        _db = getFirestore(app);
-    }
-    return _db;
+export const db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+});
+
+// Lazy getter for compatibility
+export function getDb() {
+    return db;
 }
-
-// For backward compatibility - use getter
-export const db = typeof window !== 'undefined' ? getFirestore(app) : null as any;
 
 export default app;

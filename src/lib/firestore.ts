@@ -12,6 +12,7 @@ import {
     onSnapshot,
     serverTimestamp,
     Timestamp,
+    writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Item, Log, Preset } from '@/types';
@@ -38,11 +39,45 @@ export async function addItem(userId: string, name: string): Promise<string> {
 }
 
 /**
- * Update an item's name
+ * Update an item's name and cascade changes to all logs
  */
 export async function updateItem(userId: string, itemId: string, name: string): Promise<void> {
+    const newName = name.trim();
+
+    // 1. Update the item itself
     const docRef = doc(db, 'users', userId, 'items', itemId);
-    await updateDoc(docRef, { name: name.trim() });
+    await updateDoc(docRef, { name: newName });
+
+    // 2. Find all logs with this itemId
+    // Note: This might be expensive if there are thousands of logs. 
+    // In a production app, this should be done via a Cloud Function.
+    // For this personal app, client-side batching is acceptable.
+    const logsRef = collection(db, 'users', userId, 'logs');
+    const q = query(logsRef, where('itemId', '==', itemId));
+    const snapshot = await getDocs(q);
+
+    // 3. Update all logs in batches
+    // Firestore batch limit is 500
+    const batches = [];
+    let batch = writeBatch(db);
+    let count = 0;
+
+    snapshot.docs.forEach((doc) => {
+        batch.update(doc.ref, { itemNameSnapshot: newName });
+        count++;
+
+        if (count >= 490) { // Safety margin
+            batches.push(batch.commit());
+            batch = writeBatch(db);
+            count = 0;
+        }
+    });
+
+    if (count > 0) {
+        batches.push(batch.commit());
+    }
+
+    await Promise.all(batches);
 }
 
 /**

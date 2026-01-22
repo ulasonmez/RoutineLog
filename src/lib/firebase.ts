@@ -26,9 +26,14 @@ if (typeof window !== 'undefined') {
 // Using initializeFirestore to force long polling which fixes 20s timeout issues on some networks
 import { initializeFirestore } from 'firebase/firestore';
 
+console.log('[Firebase] Initializing Firestore...');
+const start = performance.now();
+
 export const db = initializeFirestore(app, {
     experimentalForceLongPolling: true,
 });
+
+console.log(`[Firebase] Firestore initialized in ${performance.now() - start}ms`);
 
 // Lazy getter for compatibility
 export function getDb() {

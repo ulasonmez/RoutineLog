@@ -9,6 +9,8 @@ import {
     deleteLog,
     subscribeToItems,
     subscribeToLogsByDate,
+    getItemsOnce,
+    getLogsByDateOnce,
 } from '@/lib/firestore';
 import {
     formatDate,
@@ -44,16 +46,34 @@ export default function TodayPage() {
 
         console.time('TodayPage:LoadData');
 
-        // Subscribe to items
+        // Initial fetch with getDocs (bypasses realtime connection issues)
+        const fetchData = async () => {
+            try {
+                const [initialItems, initialLogs] = await Promise.all([
+                    getItemsOnce(user.uid),
+                    getLogsByDateOnce(user.uid, dateStr)
+                ]);
+
+                setItems(initialItems);
+                setLogs(initialLogs);
+                setLoading(false);
+                console.timeEnd('TodayPage:LoadData');
+            } catch (error) {
+                console.error('Initial fetch failed:', error);
+                // Fallback to loading false so user isn't stuck
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+
+        // Then subscribe for updates
         const unsubscribeItems = subscribeToItems(user.uid, (fetchedItems) => {
             setItems(fetchedItems);
         });
 
-        // Subscribe to today's logs
         const unsubscribeLogs = subscribeToLogsByDate(user.uid, dateStr, (fetchedLogs) => {
-            console.timeEnd('TodayPage:LoadData');
             setLogs(fetchedLogs);
-            setLoading(false);
         });
 
         return () => {
@@ -127,75 +147,63 @@ export default function TodayPage() {
 
     return (
         <div className="p-4 max-w-lg mx-auto pb-24">
-            {/* Header */}
             <header className="mb-6">
                 <h1 className="text-2xl font-bold text-white mb-1">Bugün</h1>
-                <p className="text-violet-400 font-medium">{displayDate}</p>
+                <p className="text-gray-400 text-sm">{displayDate}</p>
             </header>
 
             {/* Quick Add Section */}
-            <section className="bg-white/5 rounded-2xl p-4 border border-white/10 mb-8 shadow-xl shadow-black/20">
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                    Hızlı Ekle
-                </h2>
+            <section className="bg-white/5 rounded-2xl p-4 border border-white/10 shadow-xl shadow-black/20 mb-8">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                        Hızlı Ekle
+                    </h2>
+                    <TimePicker
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                    />
+                </div>
 
-                <div className="space-y-4">
-                    {/* Item Selection */}
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-2">NE YAPTIN?</label>
-                        <ItemChipList
-                            items={items}
-                            selectedIds={selectedItemId ? [selectedItemId] : []}
-                            onToggle={(id) => setSelectedItemId(id === selectedItemId ? null : id)}
-                        />
-                        {items.length === 0 && (
-                            <div className="mt-2">
-                                <Link href="/items" className="text-sm text-violet-400 hover:text-violet-300">
-                                    + Katalogdan öğe ekle
-                                </Link>
-                            </div>
-                        )}
-                    </div>
+                <ItemChipList
+                    items={items}
+                    selectedIds={selectedItemId ? [selectedItemId] : []}
+                    onToggle={(id) => setSelectedItemId(id === selectedItemId ? null : id)}
+                />
 
-                    {/* Time & Action */}
-                    <div className="flex gap-3 items-end">
-                        <div className="flex-1">
-                            <TimePicker
-                                label="SAAT"
-                                value={time}
-                                onChange={(e) => setTime(e.target.value)}
-                            />
-                        </div>
-                        <Button
-                            onClick={handleAddLog}
-                            disabled={!selectedItemId || isSubmitting}
-                            loading={isSubmitting}
-                            className="h-[48px] px-8"
-                        >
-                            Ekle
-                        </Button>
+                {items.length === 0 && (
+                    <div className="text-center py-4">
+                        <p className="text-sm text-gray-500 mb-2">Henüz hiç öğe eklemediniz.</p>
+                        <Link href="/items">
+                            <Button variant="secondary" size="sm">
+                                + Katalogdan Ekle
+                            </Button>
+                        </Link>
                     </div>
+                )}
+
+                <div className="mt-4">
+                    <Button
+                        onClick={handleAddLog}
+                        disabled={!selectedItemId || isSubmitting}
+                        fullWidth
+                        loading={isSubmitting}
+                        className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+                    >
+                        Kaydet
+                    </Button>
                 </div>
             </section>
 
             {/* Today's Logs */}
             <section>
-                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-white mb-4">
                     Günlük Akış
-                    <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-gray-400">
-                        {logs.length}
-                    </span>
                 </h2>
 
                 {logs.length === 0 ? (
                     <EmptyState
-                        title="Bugün henüz kayıt yok"
-                        description="Yukarıdaki alandan yaptıklarını ekleyerek gününü takip et."
-                        icon={
-                            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        }
+                        title="Bugün henüz boş"
+                        description="Güne başlamak için yukarıdan bir aktivite seçin."
                     />
                 ) : (
                     <LogList

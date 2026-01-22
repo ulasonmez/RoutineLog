@@ -84,6 +84,37 @@ export async function getItems(userId: string): Promise<Item[]> {
 }
 
 /**
+ * Get items (One-time fetch)
+ */
+export async function getItemsOnce(userId: string): Promise<Item[]> {
+    console.time('getItemsOnce');
+    const q = query(
+        getItemsRef(userId),
+        where('isArchived', '==', false)
+    );
+
+    try {
+        const snapshot = await getDocs(q);
+        const items = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as Item));
+
+        // Client-side sort
+        const sorted = items.sort((a, b) => {
+            const t1 = a.createdAt?.seconds || 0;
+            const t2 = b.createdAt?.seconds || 0;
+            return t1 - t2;
+        });
+        console.timeEnd('getItemsOnce');
+        return sorted;
+    } catch (error) {
+        console.error('Error fetching items:', error);
+        return [];
+    }
+}
+
+/**
  * Subscribe to items changes
  */
 export function subscribeToItems(
@@ -215,6 +246,33 @@ export async function getLogsByDate(userId: string, date: string): Promise<Log[]
 
     // Client-side sort
     return logs.sort((a, b) => a.time.localeCompare(b.time));
+}
+
+/**
+ * Get logs for a specific date (One-time fetch)
+ */
+export async function getLogsByDateOnce(userId: string, date: string): Promise<Log[]> {
+    console.time(`getLogsByDateOnce:${date}`);
+    const q = query(
+        getLogsRef(userId),
+        where('date', '==', date)
+    );
+
+    try {
+        const snapshot = await getDocs(q);
+        const logs = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as Log));
+
+        // Client-side sort
+        const sorted = logs.sort((a, b) => a.time.localeCompare(b.time));
+        console.timeEnd(`getLogsByDateOnce:${date}`);
+        return sorted;
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+        return [];
+    }
 }
 
 /**

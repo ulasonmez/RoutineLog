@@ -25,7 +25,6 @@ if (typeof window !== 'undefined') {
 // Initialize Firestore with long polling to avoid WebSocket timeout issues
 export const db = initializeFirestore(app, {
     experimentalForceLongPolling: true,
-    useFetchStreams: false,
 });
 
 export default app;

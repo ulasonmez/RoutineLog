@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -22,18 +23,15 @@ if (typeof window !== 'undefined') {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 }
 
-// Initialize Firestore
-export const db = getFirestore(app);
+// Initialize Firestore with settings
+// We use initializeFirestore instead of getFirestore to apply settings
 
-// Enable offline persistence for Firestore
-if (typeof window !== 'undefined') {
-    enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-            console.warn('Firestore persistence failed: Multiple tabs open');
-        } else if (err.code === 'unimplemented') {
-            console.warn('Firestore persistence not available in this browser');
-        }
-    });
-}
+
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+    }),
+    experimentalForceLongPolling: true, // Force long polling to avoid WebSocket timeouts (fixes 20s delay)
+});
 
 export default app;

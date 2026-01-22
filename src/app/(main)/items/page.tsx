@@ -39,21 +39,23 @@ export default function ItemsPage() {
         return () => unsubscribe();
     }, [user]);
 
-    const handleAddItem = async (e: React.FormEvent) => {
+    const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !newItemName.trim()) return;
 
-        setIsSubmitting(true);
-        try {
-            await addItem(user.uid, newItemName);
-            setNewItemName('');
-            showToast('Öğe eklendi', 'success');
-        } catch (error) {
-            console.error(error);
-            showToast('Öğe eklenirken hata oluştu', 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
+        const nameToAdd = newItemName;
+        setNewItemName(''); // Optimistic clear
+
+        // Fire and forget (with error handling)
+        addItem(user.uid, nameToAdd)
+            .then(() => {
+                showToast('Öğe eklendi', 'success');
+            })
+            .catch((error) => {
+                console.error(error);
+                setNewItemName(nameToAdd); // Restore on error
+                showToast('Öğe eklenirken hata oluştu', 'error');
+            });
     };
 
     const handleUpdateItem = async (e: React.FormEvent) => {

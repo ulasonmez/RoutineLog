@@ -62,29 +62,34 @@ export default function TodayPage() {
         };
     }, [user, dateStr]);
 
-    const handleAddLog = async () => {
+    const handleAddLog = () => {
         if (!user || !selectedItemId) return;
 
         const selectedItem = items.find(i => i.id === selectedItemId);
         if (!selectedItem) return;
 
-        setIsSubmitting(true);
-        try {
-            await addLog(
-                user.uid,
-                dateStr,
-                time,
-                selectedItemId,
-                selectedItem.name
-            );
-            showToast('Kayıt eklendi', 'success');
-            setSelectedItemId(null);
-        } catch (error) {
-            console.error(error);
-            showToast('Hata oluştu', 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
+        const itemToAdd = selectedItemId;
+        const itemName = selectedItem.name;
+        const timeToAdd = time;
+
+        // Optimistic UI updates
+        setSelectedItemId(null);
+
+        addLog(
+            user.uid,
+            dateStr,
+            timeToAdd,
+            itemToAdd,
+            itemName
+        )
+            .then(() => {
+                showToast('Kayıt eklendi', 'success');
+            })
+            .catch((error) => {
+                console.error(error);
+                setSelectedItemId(itemToAdd); // Restore selection
+                showToast('Hata oluştu', 'error');
+            });
     };
 
     const handleDeleteLog = async (log: Log) => {

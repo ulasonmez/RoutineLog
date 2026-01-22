@@ -1,7 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-
+import { initializeFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -23,15 +22,10 @@ if (typeof window !== 'undefined') {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 }
 
-// Initialize Firestore with settings
-// We use initializeFirestore instead of getFirestore to apply settings
-
-
+// Initialize Firestore with long polling to avoid WebSocket timeout issues
 export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    }),
-    experimentalForceLongPolling: true, // Force long polling to avoid WebSocket timeouts (fixes 20s delay)
+    experimentalForceLongPolling: true,
+    useFetchStreams: false,
 });
 
 export default app;

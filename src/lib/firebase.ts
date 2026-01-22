@@ -1,6 +1,6 @@
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
-import { initializeFirestore } from 'firebase/firestore';
+import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,10 +11,10 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
+// Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Initialize Auth with persistent session
+// Initialize Auth
 export const auth = getAuth(app);
 
 // Set persistence to local (survives browser restarts)
@@ -22,9 +22,17 @@ if (typeof window !== 'undefined') {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 }
 
-// Initialize Firestore with long polling to avoid WebSocket timeout issues
-export const db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-});
+// Lazy Firestore initialization - only on client side
+let _db: Firestore | null = null;
+
+export function getDb(): Firestore {
+    if (!_db) {
+        _db = getFirestore(app);
+    }
+    return _db;
+}
+
+// For backward compatibility - use getter
+export const db = typeof window !== 'undefined' ? getFirestore(app) : null as any;
 
 export default app;

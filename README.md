@@ -2,7 +2,7 @@
 
 A modern, minimalist Progressive Web App (PWA) built to help you track your daily habits, medications, and routines with precision and ease.
 
-![App Screenshot](/public/icons/icon-512x512.png)
+![App Screenshot](/public/icons/app_screenshots.png)
 
 ## 🌟 Features
 

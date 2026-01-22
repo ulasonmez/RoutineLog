@@ -132,7 +132,7 @@ export function AddLogModal({ isOpen, onClose, date }: AddLogModalProps) {
                             setTime(val);
                             setError(null);
                         }}
-                        className={`w-full px-3 py-2 bg-black/20 border rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500 ${error ? 'border-red-500' : 'border-white/10'
+                        className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500 min-h-[48px] ${error ? 'border-red-500' : 'border-white/10'
                             }`}
                     />
                     {error && (

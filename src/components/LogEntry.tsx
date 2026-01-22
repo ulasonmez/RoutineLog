@@ -12,9 +12,11 @@ export function LogEntry({ log, onEdit, onDelete }: LogEntryProps) {
     return (
         <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10 group">
             {/* Time */}
-            <div className="text-violet-400 font-mono text-sm font-medium min-w-[50px]">
-                {log.time === '00:00' ? '-' : log.time}
-            </div>
+            {log.time === '00:00' ? (
+                <span className="block text-center text-lg text-white/30 w-full">—</span>
+            ) : (
+                log.time
+            )}
 
             {/* Item name */}
             <div className="flex-1">

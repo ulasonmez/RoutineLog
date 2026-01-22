@@ -62,7 +62,7 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-white/5">
                             <span className="text-gray-300">Geliştirici</span>
-                            <span className="text-gray-500 text-sm">Antigravity AI</span>
+                            <span className="text-gray-500 text-sm">Ulaş Sönmez</span>
                         </div>
                     </div>
                 </section>

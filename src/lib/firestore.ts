@@ -674,3 +674,36 @@ export async function getUsageStats(
 
     return stats;
 }
+
+// ==================== USER DATA DELETION ====================
+
+/**
+ * Delete all user data from Firestore
+ * This removes all subcollections: groups, items, logs, presets
+ */
+export async function deleteAllUserData(userId: string): Promise<void> {
+    const batch = writeBatch(db);
+    let deleteCount = 0;
+
+    // Helper function to delete a collection in batches
+    const deleteCollection = async (collectionRef: ReturnType<typeof collection>) => {
+        const snapshot = await getDocs(collectionRef);
+        snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+            deleteCount++;
+        });
+    };
+
+    // Delete all subcollections
+    await deleteCollection(getGroupsRef(userId));
+    await deleteCollection(getItemsRef(userId));
+    await deleteCollection(getLogsRef(userId));
+    await deleteCollection(getPresetsRef(userId));
+
+    // Commit the batch
+    if (deleteCount > 0) {
+        await batch.commit();
+    }
+
+    console.log(`Deleted ${deleteCount} documents for user ${userId}`);
+}

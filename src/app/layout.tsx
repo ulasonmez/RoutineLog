@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: "Routine Log",
   description: "Track your daily hair care routine",
   manifest: "/manifest.json",
+  icons: {
+    icon: '/icons/icon.png',
+    apple: '/icons/icon.png',
+  },
 };
 
 export const viewport: Viewport = {

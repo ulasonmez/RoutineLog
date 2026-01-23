@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
+import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 
 export default function SettingsPage() {
     const { user, logout } = useAuth();
     const router = useRouter();
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -48,6 +51,15 @@ export default function SettingsPage() {
                     >
                         Çıkış Yap
                     </Button>
+
+                    <Button
+                        variant="ghost"
+                        fullWidth
+                        onClick={() => setIsDeleteModalOpen(true)}
+                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10 border-red-500/30"
+                    >
+                        🗑️ Hesabı Sil
+                    </Button>
                 </section>
 
                 {/* About Section */}
@@ -67,6 +79,11 @@ export default function SettingsPage() {
                     </div>
                 </section>
             </div>
+
+            <DeleteAccountModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+            />
         </div>
     );
 }

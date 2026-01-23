@@ -7,6 +7,9 @@ import {
     signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
+    deleteUser,
+    EmailAuthProvider,
+    reauthenticateWithCredential,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -16,6 +19,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     register: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
+    deleteAccount: (email: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,12 +49,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await signOut(auth);
     };
 
+    const deleteAccount = async (email: string, password: string): Promise<void> => {
+        if (!user) {
+            throw new Error('No user is currently signed in');
+        }
+
+        // Re-authenticate the user before deletion (Firebase requirement)
+        const credential = EmailAuthProvider.credential(email, password);
+        await reauthenticateWithCredential(user, credential);
+
+        // Delete the user account
+        await deleteUser(user);
+    };
+
     const value: AuthContextType = {
         user,
         loading,
         login,
         register,
         logout,
+        deleteAccount,
     };
 
     return (

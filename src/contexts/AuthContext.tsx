@@ -12,6 +12,7 @@ import {
     reauthenticateWithCredential,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { ensureUserProfile } from '@/lib/firestore';
 
 interface AuthContextType {
     user: User | null;
@@ -29,9 +30,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setUser(user);
             setLoading(false);
+
+            if (user && user.email) {
+                try {
+                    await ensureUserProfile(user.uid, user.email);
+                } catch (error) {
+                    console.error('Error ensuring user profile:', error);
+                }
+            }
         });
 
         return () => unsubscribe();

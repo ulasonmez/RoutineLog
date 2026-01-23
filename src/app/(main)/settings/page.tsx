@@ -44,6 +44,15 @@ export default function SettingsPage() {
                     </div>
 
                     <Button
+                        variant="ghost"
+                        fullWidth
+                        onClick={() => router.push('/settings/friends')}
+                        className="text-gray-300 hover:text-white hover:bg-white/10 border-white/10 mb-2"
+                    >
+                        👥 Arkadaşlar
+                    </Button>
+
+                    <Button
                         variant="secondary"
                         fullWidth
                         onClick={handleLogout}

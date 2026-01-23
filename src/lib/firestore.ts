@@ -14,9 +14,10 @@ import {
     Timestamp,
     writeBatch,
     getCountFromServer,
+    setDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Item, Log, Preset, Group } from '@/types';
+import { Item, Log, Preset, Group, UserProfile, FriendRequest, Friendship } from '@/types';
 
 // ==================== GROUPS ====================
 
@@ -706,4 +707,219 @@ export async function deleteAllUserData(userId: string): Promise<void> {
     }
 
     console.log(`Deleted ${deleteCount} documents for user ${userId}`);
+}
+
+// ==================== FRIENDSHIP SYSTEM ====================
+
+/**
+ * Ensure user profile exists with searchable username
+ */
+export async function ensureUserProfile(userId: string, email: string): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+        const username = email.split('@')[0].toLowerCase();
+        await setDoc(userRef, {
+            uid: userId,
+            username,
+            createdAt: serverTimestamp(),
+        });
+    }
+}
+
+/**
+ * Search user by username
+ */
+export async function searchUserByUsername(username: string): Promise<UserProfile | null> {
+    const q = query(collection(db, 'users'), where('username', '==', username.toLowerCase()));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    return {
+        uid: doc.id,
+        ...doc.data(),
+    } as UserProfile;
+}
+
+/**
+ * Send friend request
+ */
+export async function sendFriendRequest(fromUserId: string, fromUsername: string, toUserId: string, toUsername: string): Promise<void> {
+    // Check if request already exists
+    const q = query(
+        collection(db, 'friend_requests'),
+        where('fromId', '==', fromUserId),
+        where('toId', '==', toUserId),
+        where('status', '==', 'pending')
+    );
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+        throw new Error('Request already pending');
+    }
+
+    // Check if already friends
+    const friendRef = doc(db, 'users', fromUserId, 'friends', toUserId);
+    const friendSnap = await getDoc(friendRef);
+    if (friendSnap.exists()) {
+        throw new Error('Already friends');
+    }
+
+    await addDoc(collection(db, 'friend_requests'), {
+        fromId: fromUserId,
+        fromUsername,
+        toId: toUserId,
+        toUsername,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+    });
+}
+
+/**
+ * Get incoming friend requests
+ */
+export function subscribeToIncomingRequests(userId: string, callback: (requests: FriendRequest[]) => void): () => void {
+    const q = query(
+        collection(db, 'friend_requests'),
+        where('toId', '==', userId),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        const requests = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as FriendRequest));
+        callback(requests);
+    });
+}
+
+/**
+ * Respond to friend request
+ */
+export async function respondToFriendRequest(requestId: string, response: 'accepted' | 'rejected'): Promise<void> {
+    const requestRef = doc(db, 'friend_requests', requestId);
+    const requestSnap = await getDoc(requestRef);
+
+    if (!requestSnap.exists()) throw new Error('Request not found');
+
+    const request = requestSnap.data() as FriendRequest;
+
+    if (response === 'rejected') {
+        await updateDoc(requestRef, { status: 'rejected' });
+        return;
+    }
+
+    // If accepted, create friendship records for both users
+    const batch = writeBatch(db);
+
+    // Update request status
+    batch.update(requestRef, { status: 'accepted' });
+
+    // Add friend to receiver
+    const receiverFriendRef = doc(db, 'users', request.toId, 'friends', request.fromId);
+    batch.set(receiverFriendRef, {
+        uid: request.fromId,
+        username: request.fromUsername,
+        since: serverTimestamp(),
+        permissions: {
+            viewCalendar: true,
+            viewDetails: true,
+            hideTimes: false,
+        }
+    });
+
+    // Add friend to sender
+    const senderFriendRef = doc(db, 'users', request.fromId, 'friends', request.toId);
+    batch.set(senderFriendRef, {
+        uid: request.toId,
+        username: request.toUsername,
+        since: serverTimestamp(),
+        permissions: {
+            viewCalendar: true,
+            viewDetails: true,
+            hideTimes: false,
+        }
+    });
+
+    await batch.commit();
+}
+
+/**
+ * Get friends list
+ */
+export function subscribeToFriends(userId: string, callback: (friends: Friendship[]) => void): () => void {
+    const q = query(collection(db, 'users', userId, 'friends'));
+
+    return onSnapshot(q, (snapshot) => {
+        const friends = snapshot.docs.map(doc => ({
+            uid: doc.id, // The doc ID is the friend's UID
+            ...doc.data(),
+        } as Friendship));
+        callback(friends);
+    });
+}
+
+/**
+ * Remove friend
+ */
+export async function removeFriend(userId: string, friendId: string): Promise<void> {
+    const batch = writeBatch(db);
+
+    // Remove from user's friends
+    batch.delete(doc(db, 'users', userId, 'friends', friendId));
+
+    // Remove from friend's friends
+    batch.delete(doc(db, 'users', friendId, 'friends', userId));
+
+    await batch.commit();
+}
+
+/**
+ * Update friend permissions
+ */
+export async function updateFriendPermissions(
+    userId: string,
+    friendId: string,
+    permissions: Friendship['permissions']
+): Promise<void> {
+    // Note: We are updating the record in the FRIEND'S collection
+    // because "permissions" defines what *I* let *THEM* see.
+    // Wait, actually, usually permissions are stored on my record of them.
+    // Let's stick to: My record of them contains the permissions I GAVE THEM.
+    // So when they view my profile, they check `users/me/friends/them`.
+
+    const friendRef = doc(db, 'users', userId, 'friends', friendId);
+    await updateDoc(friendRef, { permissions });
+}
+
+/**
+ * Get friend's permissions (to check what I can see)
+ */
+export async function getFriendshipStatus(myId: string, friendId: string): Promise<Friendship | null> {
+    // 1. Get my record of them (to get their name and verify friendship)
+    const myRecordRef = doc(db, 'users', myId, 'friends', friendId);
+    const myRecordSnap = await getDoc(myRecordRef);
+
+    if (!myRecordSnap.exists()) return null;
+
+    // 2. Get their record of me (to get permissions they gave me)
+    const theirRecordRef = doc(db, 'users', friendId, 'friends', myId);
+    const theirRecordSnap = await getDoc(theirRecordRef);
+
+    if (!theirRecordSnap.exists()) return null;
+
+    const myRecord = myRecordSnap.data();
+    const theirRecord = theirRecordSnap.data();
+
+    return {
+        uid: friendId,
+        username: myRecord.username, // Their username from my list
+        since: myRecord.since,
+        permissions: theirRecord.permissions // Permissions they gave me
+    } as Friendship;
 }

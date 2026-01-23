@@ -101,7 +101,7 @@ export function Calendar({ selectedDate, onDateSelect, logCounts, logColors = {}
                             onClick={() => onDateSelect(date)}
                             className={`
                 aspect-square flex flex-col items-center justify-center rounded-xl
-                transition-all duration-200 relative
+                transition-all duration-200 relative p-1
                 ${isSelected
                                     ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white'
                                     : isToday
@@ -110,65 +110,67 @@ export function Calendar({ selectedDate, onDateSelect, logCounts, logColors = {}
                                 }
               `}
                         >
-                            <span className="text-sm font-medium">{date.getDate()}</span>
+                            <span className="text-sm font-medium mb-0.5">{date.getDate()}</span>
 
                             {/* Entry count indicator */}
-                            {count > 0 && (
-                                <div
-                                    className={`
-                    absolute bottom-1 flex gap-0.5 flex-wrap justify-center max-w-[80%]
+                            <div className="h-3 flex items-center justify-center w-full">
+                                {count > 0 && (
+                                    <div
+                                        className={`
+                    flex gap-0.5 flex-wrap justify-center max-w-[90%]
                     ${isSelected ? 'text-white/70' : ''}
                   `}
-                                >
-                                    {colors.length > 0 ? (
-                                        // Show colored dots based on groups
-                                        colors.length <= 4 ? (
-                                            colors.map((color, i) => (
-                                                <div
-                                                    key={i}
-                                                    className={`
-                          w-1.5 h-1.5 rounded-full
+                                    >
+                                        {colors.length > 0 ? (
+                                            // Show colored dots based on groups
+                                            colors.length <= 4 ? (
+                                                colors.map((color, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className={`
+                          w-1 h-1 rounded-full
                           ${isSelected ? 'ring-1 ring-white' : ''}
                         `}
-                                                    style={{ backgroundColor: color }}
-                                                />
-                                            ))
-                                        ) : (
-                                            <span
-                                                className={`
-                          text-[10px] font-medium
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                ))
+                                            ) : (
+                                                <span
+                                                    className={`
+                          text-[9px] font-medium leading-none
                           ${isSelected ? 'text-white/70' : 'text-violet-400'}
                         `}
-                                            >
-                                                {count}
-                                            </span>
-                                        )
-                                    ) : (
-                                        // Fallback to default dots if no colors
-                                        count <= 3 ? (
-                                            Array.from({ length: count }).map((_, i) => (
-                                                <div
-                                                    key={i}
-                                                    className={`
-                            w-1.5 h-1.5 rounded-full
+                                                >
+                                                    {count}
+                                                </span>
+                                            )
+                                        ) : (
+                                            // Fallback to default dots if no colors
+                                            count <= 3 ? (
+                                                Array.from({ length: count }).map((_, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className={`
+                            w-1 h-1 rounded-full
                             ${isSelected ? 'ring-1 ring-white' : ''}
                           `}
-                                                    style={{ backgroundColor: '#8b5cf6' }} // violet-500
-                                                />
-                                            ))
-                                        ) : (
-                                            <span
-                                                className={`
-                          text-[10px] font-medium
+                                                        style={{ backgroundColor: '#8b5cf6' }} // violet-500
+                                                    />
+                                                ))
+                                            ) : (
+                                                <span
+                                                    className={`
+                          text-[9px] font-medium leading-none
                           ${isSelected ? 'text-white/70' : 'text-violet-400'}
                         `}
-                                            >
-                                                {count}
-                                            </span>
-                                        )
-                                    )}
-                                </div>
-                            )}
+                                                >
+                                                    {count}
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </button>
                     );
                 })}

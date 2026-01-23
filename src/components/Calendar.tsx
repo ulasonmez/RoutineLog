@@ -7,9 +7,10 @@ interface CalendarProps {
     selectedDate?: Date;
     onDateSelect: (date: Date) => void;
     logCounts: Record<string, number>;
+    logColors?: Record<string, string[]>;
 }
 
-export function Calendar({ selectedDate, onDateSelect, logCounts }: CalendarProps) {
+export function Calendar({ selectedDate, onDateSelect, logCounts, logColors = {} }: CalendarProps) {
     const today = new Date();
     const [currentMonth, setCurrentMonth] = useState(today.getMonth());
     const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -90,6 +91,7 @@ export function Calendar({ selectedDate, onDateSelect, logCounts }: CalendarProp
                 {days.map((date) => {
                     const dateString = formatDate(date);
                     const count = logCounts[dateString] || 0;
+                    const colors = logColors[dateString] || [];
                     const isToday = isSameDay(date, today);
                     const isSelected = selectedDate && isSameDay(date, selectedDate);
 
@@ -114,31 +116,56 @@ export function Calendar({ selectedDate, onDateSelect, logCounts }: CalendarProp
                             {count > 0 && (
                                 <div
                                     className={`
-                    absolute bottom-1 flex gap-0.5
+                    absolute bottom-1 flex gap-0.5 flex-wrap justify-center max-w-[80%]
                     ${isSelected ? 'text-white/70' : ''}
                   `}
                                 >
-                                    {count <= 3 ? (
-                                        // Show dots for 1-3 entries
-                                        Array.from({ length: count }).map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className={`
-                          w-1 h-1 rounded-full
-                          ${isSelected ? 'bg-white/70' : 'bg-violet-400'}
+                                    {colors.length > 0 ? (
+                                        // Show colored dots based on groups
+                                        colors.length <= 4 ? (
+                                            colors.map((color, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`
+                          w-1.5 h-1.5 rounded-full
+                          ${isSelected ? 'ring-1 ring-white' : ''}
                         `}
-                                            />
-                                        ))
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                            ))
+                                        ) : (
+                                            <span
+                                                className={`
+                          text-[10px] font-medium
+                          ${isSelected ? 'text-white/70' : 'text-violet-400'}
+                        `}
+                                            >
+                                                {count}
+                                            </span>
+                                        )
                                     ) : (
-                                        // Show count for more than 3
-                                        <span
-                                            className={`
-                        text-[10px] font-medium
-                        ${isSelected ? 'text-white/70' : 'text-violet-400'}
-                      `}
-                                        >
-                                            {count}
-                                        </span>
+                                        // Fallback to default dots if no colors
+                                        count <= 3 ? (
+                                            Array.from({ length: count }).map((_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`
+                            w-1.5 h-1.5 rounded-full
+                            ${isSelected ? 'ring-1 ring-white' : ''}
+                          `}
+                                                    style={{ backgroundColor: '#8b5cf6' }} // violet-500
+                                                />
+                                            ))
+                                        ) : (
+                                            <span
+                                                className={`
+                          text-[10px] font-medium
+                          ${isSelected ? 'text-white/70' : 'text-violet-400'}
+                        `}
+                                            >
+                                                {count}
+                                            </span>
+                                        )
                                     )}
                                 </div>
                             )}

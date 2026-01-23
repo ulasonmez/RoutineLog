@@ -1,8 +1,19 @@
 import { Timestamp } from 'firebase/firestore';
 
+export interface Group {
+  id: string;
+  name: string;
+  color: string;
+  userId: string;
+  createdAt: Timestamp;
+}
+
 export interface Item {
   id: string;
   name: string;
+  groupId: string;
+  groupNameSnapshot?: string; // Optional for display
+  groupColorSnapshot?: string; // Optional for display
   createdAt: Timestamp;
   isArchived: boolean;
 }
@@ -14,6 +25,8 @@ export interface Log {
   timestamp: Timestamp;
   itemId: string;
   itemNameSnapshot: string;
+  groupId?: string; // Optional for backward compatibility
+  groupColor?: string; // Optional for backward compatibility
   note?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

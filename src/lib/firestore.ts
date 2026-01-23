@@ -13,9 +13,99 @@ import {
     serverTimestamp,
     Timestamp,
     writeBatch,
+    getCountFromServer,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Item, Log, Preset } from '@/types';
+import { Item, Log, Preset, Group } from '@/types';
+
+// ==================== GROUPS ====================
+
+/**
+ * Get reference to user's groups collection
+ */
+function getGroupsRef(userId: string) {
+    return collection(db, 'users', userId, 'groups');
+}
+
+/**
+ * Add a new group
+ */
+export async function addGroup(userId: string, name: string, color: string): Promise<string> {
+    const docRef = await addDoc(getGroupsRef(userId), {
+        name: name.trim(),
+        color,
+        createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+}
+
+/**
+ * Update a group
+ */
+export async function updateGroup(userId: string, groupId: string, updates: { name?: string; color?: string }): Promise<void> {
+    const docRef = doc(db, 'users', userId, 'groups', groupId);
+    await updateDoc(docRef, updates);
+}
+
+/**
+ * Delete a group
+ */
+export async function deleteGroup(userId: string, groupId: string): Promise<void> {
+    const docRef = doc(db, 'users', userId, 'groups', groupId);
+    await deleteDoc(docRef);
+}
+
+/**
+ * Get all groups
+ */
+export async function getGroups(userId: string): Promise<Group[]> {
+    const q = query(getGroupsRef(userId), orderBy('createdAt', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    } as Group));
+}
+
+/**
+ * Subscribe to groups
+ */
+export function subscribeToGroups(
+    userId: string,
+    callback: (groups: Group[]) => void
+): () => void {
+    const q = query(getGroupsRef(userId), orderBy('createdAt', 'asc'));
+
+    return onSnapshot(q, (snapshot) => {
+        const groups = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as Group));
+        callback(groups);
+    });
+}
+
+/**
+ * Ensure default group exists
+ */
+export async function ensureDefaultGroup(userId: string): Promise<string> {
+    // First check if "Genel" specifically exists
+    const q = query(getGroupsRef(userId), where('name', '==', 'Genel'));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+        return snapshot.docs[0].id;
+    }
+
+    // Then check if ANY group exists
+    const groups = await getGroups(userId);
+    if (groups.length > 0) {
+        return groups[0].id;
+    }
+
+    // Create default group
+    return await addGroup(userId, 'Genel', '#8b5cf6'); // Violet-500
+}
 
 // ==================== ITEMS ====================
 
@@ -29,9 +119,18 @@ function getItemsRef(userId: string) {
 /**
  * Add a new item to user's catalog
  */
-export async function addItem(userId: string, name: string): Promise<string> {
+export async function addItem(
+    userId: string,
+    name: string,
+    groupId: string,
+    groupNameSnapshot?: string,
+    groupColorSnapshot?: string
+): Promise<string> {
     const docRef = await addDoc(getItemsRef(userId), {
         name: name.trim(),
+        groupId,
+        groupNameSnapshot,
+        groupColorSnapshot,
         createdAt: serverTimestamp(),
         isArchived: false,
     });
@@ -41,35 +140,54 @@ export async function addItem(userId: string, name: string): Promise<string> {
 /**
  * Update an item's name and cascade changes to all logs
  */
-export async function updateItem(userId: string, itemId: string, name: string): Promise<void> {
-    const newName = name.trim();
+/**
+ * Update an item's name and/or group, and cascade changes to all logs
+ */
+export async function updateItem(
+    userId: string,
+    itemId: string,
+    updates: {
+        name?: string;
+        groupId?: string;
+        groupNameSnapshot?: string;
+        groupColorSnapshot?: string;
+    }
+): Promise<void> {
+    const itemUpdates: any = {};
+    if (updates.name) itemUpdates.name = updates.name.trim();
+    if (updates.groupId) itemUpdates.groupId = updates.groupId;
+    if (updates.groupNameSnapshot) itemUpdates.groupNameSnapshot = updates.groupNameSnapshot;
+    if (updates.groupColorSnapshot) itemUpdates.groupColorSnapshot = updates.groupColorSnapshot;
 
     // 1. Update the item itself
     const docRef = doc(db, 'users', userId, 'items', itemId);
-    await updateDoc(docRef, { name: newName });
+    await updateDoc(docRef, itemUpdates);
 
     // 2. Find all logs with this itemId
-    // Note: This might be expensive if there are thousands of logs. 
-    // In a production app, this should be done via a Cloud Function.
-    // For this personal app, client-side batching is acceptable.
     const logsRef = collection(db, 'users', userId, 'logs');
     const q = query(logsRef, where('itemId', '==', itemId));
     const snapshot = await getDocs(q);
 
     // 3. Update all logs in batches
-    // Firestore batch limit is 500
     const batches = [];
     let batch = writeBatch(db);
     let count = 0;
 
     snapshot.docs.forEach((doc) => {
-        batch.update(doc.ref, { itemNameSnapshot: newName });
-        count++;
+        const logUpdates: any = {};
+        if (updates.name) logUpdates.itemNameSnapshot = updates.name.trim();
+        if (updates.groupId) logUpdates.groupId = updates.groupId;
+        if (updates.groupColorSnapshot) logUpdates.groupColor = updates.groupColorSnapshot;
 
-        if (count >= 490) { // Safety margin
-            batches.push(batch.commit());
-            batch = writeBatch(db);
-            count = 0;
+        if (Object.keys(logUpdates).length > 0) {
+            batch.update(doc.ref, logUpdates);
+            count++;
+
+            if (count >= 490) { // Safety margin
+                batches.push(batch.commit());
+                batch = writeBatch(db);
+                count = 0;
+            }
         }
     });
 
@@ -182,10 +300,11 @@ export function subscribeToItems(
  * Add demo items for new users
  */
 export async function addDemoItems(userId: string): Promise<void> {
-    const demoItems = ['Biotin', 'Minoxil', 'TTO', 'Konazol', 'Dercos', 'Vichy', 'Dermaroller'];
+    const defaultGroupId = await ensureDefaultGroup(userId);
+    const demoItems = ['Spor', 'Yemek', 'Meditasyon', 'Kahve'];
 
     for (const itemName of demoItems) {
-        await addItem(userId, itemName);
+        await addItem(userId, itemName, defaultGroupId);
     }
 }
 
@@ -207,7 +326,9 @@ export async function addLog(
     time: string,
     itemId: string,
     itemNameSnapshot: string,
-    note?: string
+    note?: string,
+    groupId?: string,
+    groupColor?: string
 ): Promise<string> {
     const docRef = await addDoc(getLogsRef(userId), {
         date,
@@ -216,6 +337,8 @@ export async function addLog(
         itemId,
         itemNameSnapshot,
         note: note || null,
+        groupId: groupId || null,
+        groupColor: groupColor || null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     });
@@ -235,6 +358,9 @@ export async function addMultipleLogs(
     const ids: string[] = [];
 
     for (const item of items) {
+        // Note: Presets don't currently store group info, so we might miss it here.
+        // For now, we'll skip passing group info for presets until we update presets structure.
+        // Ideally, we should fetch item details to get the group.
         const id = await addLog(userId, date, time, item.itemId, item.itemNameSnapshot, note);
         ids.push(id);
     }
@@ -468,6 +594,57 @@ export function subscribeToPresets(
         } as Preset));
         callback(presets);
     });
+}
+
+// ==================== ITEM-SPECIFIC CALENDAR ====================
+
+/**
+ * Get log counts for a specific item by date (for item calendar badges)
+ * Optimized to avoid composite index requirement by filtering in memory
+ */
+export async function getLogCountsByItemId(
+    userId: string,
+    itemId: string,
+    startDate: string,
+    endDate: string
+): Promise<Record<string, number>> {
+    // Query only by date range (uses existing single-field index)
+    const q = query(
+        getLogsRef(userId),
+        where('date', '>=', startDate),
+        where('date', '<=', endDate),
+        orderBy('date', 'asc')
+    );
+
+    const snapshot = await getDocs(q);
+    const counts: Record<string, number> = {};
+
+    snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        // Filter by itemId in memory
+        if (data.itemId === itemId) {
+            const date = data.date;
+            counts[date] = (counts[date] || 0) + 1;
+        }
+    });
+
+    return counts;
+}
+
+/**
+ * Get total usage count for a specific item (all time)
+ */
+export async function getTotalItemUsageCount(
+    userId: string,
+    itemId: string
+): Promise<number> {
+    const q = query(
+        getLogsRef(userId),
+        where('itemId', '==', itemId)
+    );
+
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
 }
 
 // ==================== STATISTICS ====================

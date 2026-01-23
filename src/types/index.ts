@@ -43,3 +43,32 @@ export interface User {
   uid: string;
   email: string | null;
 }
+
+export interface UserProfile {
+  uid: string;
+  username: string; // searchable
+  displayName?: string;
+  photoURL?: string;
+  createdAt: Timestamp;
+}
+
+export interface FriendRequest {
+  id: string;
+  fromId: string;
+  fromUsername: string;
+  toId: string;
+  toUsername: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: Timestamp;
+}
+
+export interface Friendship {
+  uid: string; // Friend's UID
+  username: string;
+  since: Timestamp;
+  permissions: {
+    viewCalendar: boolean;
+    viewDetails: boolean;
+    hideTimes: boolean;
+  };
+}

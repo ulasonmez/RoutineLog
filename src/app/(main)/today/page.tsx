@@ -100,7 +100,10 @@ export default function TodayPage() {
             dateStr,
             timeToAdd,
             itemToAdd,
-            itemName
+            itemName,
+            undefined, // note
+            selectedItem.groupId,
+            selectedItem.groupColorSnapshot
         )
             .then(() => {
                 showToast('Kayıt eklendi', 'success');

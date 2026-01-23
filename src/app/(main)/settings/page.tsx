@@ -58,7 +58,7 @@ export default function SettingsPage() {
                     <div className="space-y-3">
                         <div className="flex justify-between items-center py-2 border-b border-white/5">
                             <span className="text-gray-300">Versiyon</span>
-                            <span className="text-gray-500 font-mono text-sm">1.0.0</span>
+                            <span className="text-gray-500 font-mono text-sm">1.0.2</span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-white/5">
                             <span className="text-gray-300">Geliştirici</span>

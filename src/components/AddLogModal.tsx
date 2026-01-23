@@ -57,7 +57,10 @@ export function AddLogModal({ isOpen, onClose, date }: AddLogModalProps) {
                 formatDate(date),
                 finalTime,
                 selectedItemId,
-                selectedItem.name
+                selectedItem.name,
+                undefined, // note
+                selectedItem.groupId,
+                selectedItem.groupColorSnapshot
             );
             showToast('Kayıt eklendi', 'success');
             setSelectedItemId(null);

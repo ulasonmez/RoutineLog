@@ -9,13 +9,14 @@ import {
     getLogCountsByDate,
     subscribeToLogsByDate,
     deleteLog,
+    subscribeToItems,
 } from '@/lib/firestore';
 import {
     formatDate,
     getMonthDateRange,
     formatDateTurkish
 } from '@/lib/utils';
-import { Log } from '@/types';
+import { Log, Item } from '@/types';
 import { Calendar } from '@/components/Calendar';
 import { LogList } from '@/components/LogEntry';
 import { Button } from '@/components/ui/Button';
@@ -28,10 +29,22 @@ export default function CalendarPage() {
 
     // State
     const [logs, setLogs] = useState<Log[]>([]); // All logs for dots
+    const [items, setItems] = useState<Item[]>([]); // Items for color lookup
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedDateLogs, setSelectedDateLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+    // Fetch items for color lookup
+    useEffect(() => {
+        if (!user) return;
+
+        const unsubscribe = subscribeToItems(user.uid, (fetchedItems) => {
+            setItems(fetchedItems);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     // Fetch all logs for dots (broad range)
     useEffect(() => {
@@ -87,6 +100,29 @@ export default function CalendarPage() {
     };
 
     const logCounts = getLogCountsByDate(logs);
+
+    // Calculate colors for dots (unique colors per date)
+    const logColors: Record<string, string[]> = {};
+    logs.forEach(log => {
+        if (!logColors[log.date]) {
+            logColors[log.date] = [];
+        }
+
+        // Try to get color from log first, then fallback to item lookup
+        let color = log.groupColor;
+
+        if (!color) {
+            // Find the item to get its color
+            const item = items.find(i => i.id === log.itemId);
+            color = item?.groupColorSnapshot || '#8b5cf6';
+        }
+
+        // Only add color if not already present (deduplicate by group)
+        if (!logColors[log.date].includes(color)) {
+            logColors[log.date].push(color);
+        }
+    });
+
     const displayDate = formatDateTurkish(selectedDate);
 
     if (loading) {
@@ -116,6 +152,7 @@ export default function CalendarPage() {
                     selectedDate={selectedDate}
                     onDateSelect={handleDateSelect}
                     logCounts={logCounts}
+                    logColors={logColors}
                 />
             </div>
 

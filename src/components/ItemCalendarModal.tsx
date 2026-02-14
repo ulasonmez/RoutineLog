@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate, getDaysInMonth, turkishMonthNames, isSameDay } from '@/lib/utils';
-import { getLogCountsByItemId, getTotalItemUsageCount } from '@/lib/firestore';
-import { Item } from '@/types';
+import { getLogCountsByItemId, getTotalItemUsageCount, getAllItemLogs } from '@/lib/firestore';
+import { Item, Log } from '@/types';
 
 interface ItemCalendarModalProps {
     item: Item | null;
@@ -17,8 +17,7 @@ export function ItemCalendarModal({ item, isOpen, onClose, userId }: ItemCalenda
     const today = new Date();
     const [currentMonth, setCurrentMonth] = useState(today.getMonth());
     const [currentYear, setCurrentYear] = useState(today.getFullYear());
-    const [logCounts, setLogCounts] = useState<Record<string, number>>({});
-    const [totalUsageCount, setTotalUsageCount] = useState<number>(0);
+    const [allLogs, setAllLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(false);
 
     const days = getDaysInMonth(currentYear, currentMonth);
@@ -27,44 +26,23 @@ export function ItemCalendarModal({ item, isOpen, onClose, userId }: ItemCalenda
     // Adjust for Monday start (0 = Monday, 6 = Sunday)
     const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
-    // Fetch log counts when month/year changes
+    // Fetch ALL logs once when modal opens
     useEffect(() => {
         if (!item || !isOpen) return;
 
-        const fetchLogCounts = async () => {
+        const fetchLogs = async () => {
             setLoading(true);
             try {
-                // Get first and last day of current month
-                const startDate = formatDate(new Date(currentYear, currentMonth, 1));
-                const lastDay = new Date(currentYear, currentMonth + 1, 0);
-                const endDate = formatDate(lastDay);
-
-                const counts = await getLogCountsByItemId(userId, item.id, startDate, endDate);
-                setLogCounts(counts);
+                const logs = await getAllItemLogs(userId, item.id);
+                setAllLogs(logs);
             } catch (error) {
-                console.error('Error fetching log counts:', error);
+                console.error('Error fetching logs:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchLogCounts();
-    }, [item, isOpen, userId, currentMonth, currentYear]);
-
-    // Fetch total usage count when modal opens
-    useEffect(() => {
-        if (!item || !isOpen) return;
-
-        const fetchTotalCount = async () => {
-            try {
-                const count = await getTotalItemUsageCount(userId, item.id);
-                setTotalUsageCount(count);
-            } catch (error) {
-                console.error('Error fetching total usage count:', error);
-            }
-        };
-
-        fetchTotalCount();
+        fetchLogs();
     }, [item, isOpen, userId]);
 
     // Reset to current month when modal opens
@@ -93,11 +71,29 @@ export function ItemCalendarModal({ item, isOpen, onClose, userId }: ItemCalenda
         }
     };
 
+    // --- DERIVED STATE CALCULATIONS (In-Memory) ---
+
+    // 1. Filter logs for current month view
+    const currentMonthLogs = allLogs.filter(log => {
+        const date = new Date(log.date);
+        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    });
+
+    // 2. Calculate daily counts for the calendar grid
+    const logCounts: Record<string, number> = {};
+    currentMonthLogs.forEach(log => {
+        logCounts[log.date] = (logCounts[log.date] || 0) + 1;
+    });
+
+    // 3. Totals
+    const totalUsageCount = allLogs.length;
+    const totalUniqueDaysCount = new Set(allLogs.map(log => log.date)).size;
+
+    // 4. Monthly Stats
+    const monthlyUsage = currentMonthLogs.length;
+    const monthlyUniqueDays = new Set(currentMonthLogs.map(log => log.date)).size;
+
     const dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cts', 'Paz'];
-
-    // Calculate total usage for current month
-    const monthlyUsage = Object.values(logCounts).reduce((sum, count) => sum + count, 0);
-
     const groupColor = item?.groupColorSnapshot || '#8b5cf6';
 
     return (
@@ -111,11 +107,17 @@ export function ItemCalendarModal({ item, isOpen, onClose, userId }: ItemCalenda
                 <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-center">
                         <span className="text-2xl font-bold text-violet-400">{monthlyUsage}</span>
-                        <p className="text-xs text-gray-400 mt-1">Bu Ay</p>
+                        <p className="text-xs text-gray-400 mt-1 mb-1.5">Bu Ay</p>
+                        <div className="px-2 py-0.5 rounded-full bg-white/5 inline-block">
+                            <p className="text-[10px] text-gray-400 font-medium">{monthlyUniqueDays} gün</p>
+                        </div>
                     </div>
                     <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-center">
                         <span className="text-2xl font-bold text-indigo-400">{totalUsageCount}</span>
-                        <p className="text-xs text-gray-400 mt-1">Toplam</p>
+                        <p className="text-xs text-gray-400 mt-1 mb-1.5">Toplam</p>
+                        <div className="px-2 py-0.5 rounded-full bg-white/5 inline-block">
+                            <p className="text-[10px] text-gray-400 font-medium">{totalUniqueDaysCount} gün</p>
+                        </div>
                     </div>
                 </div>
 

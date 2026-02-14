@@ -600,6 +600,28 @@ export function subscribeToPresets(
 // ==================== ITEM-SPECIFIC CALENDAR ====================
 
 /**
+ * Get all logs for a specific item (ordered by date)
+ */
+export async function getAllItemLogs(
+    userId: string,
+    itemId: string
+): Promise<Log[]> {
+    const q = query(
+        getLogsRef(userId),
+        where('itemId', '==', itemId)
+    );
+
+    const snapshot = await getDocs(q);
+    const logs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    } as Log));
+
+    // Sort by date client-side to avoid composite index requirement
+    return logs.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
  * Get log counts for a specific item by date (for item calendar badges)
  * Optimized to avoid composite index requirement by filtering in memory
  */
@@ -646,6 +668,31 @@ export async function getTotalItemUsageCount(
 
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
+}
+
+/**
+ * Get total unique days count for a specific item (all time)
+ */
+export async function getTotalItemUniqueDaysCount(
+    userId: string,
+    itemId: string
+): Promise<number> {
+    const q = query(
+        getLogsRef(userId),
+        where('itemId', '==', itemId)
+    );
+
+    const snapshot = await getDocs(q);
+    const uniqueDays = new Set<string>();
+
+    snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.date) {
+            uniqueDays.add(data.date);
+        }
+    });
+
+    return uniqueDays.size;
 }
 
 // ==================== STATISTICS ====================

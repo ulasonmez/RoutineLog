@@ -96,10 +96,22 @@ export function AddLogModal({ isOpen, onClose, date }: AddLogModalProps) {
                 {/* Time Selection - SAME AS TODAY PAGE */}
                 <div>
                     <label className="block text-xs text-gray-500 mb-2">SAAT</label>
-                    <TimePicker
-                        value={time}
-                        onChange={(e) => setTime(e.target.value)}
-                    />
+                    <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                            <TimePicker
+                                value={time}
+                                onChange={(e) => setTime(e.target.value)}
+                            />
+                        </div>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setTime('23:59')}
+                            className="whitespace-nowrap px-3 text-xs"
+                        >
+                            Son Dakika
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="flex gap-3">
